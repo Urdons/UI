@@ -5,21 +5,33 @@ local m = game:GetService("Players").LocalPlayer:GetMouse()
 
 local t = require(rs.Theme)
 
+local mouseState = false
+
 --default theme
-local Theme = {
-	["Margin"] = 4,
-	["BorderRadius"] = 8,
-	["Frame"] = {
-		["BackgroundColor3"] = Color3.fromHex("#222222"),
-	},
-	["Text"] = {
-		["BackgroundColor3"] = Color3.fromHex("#222222"),
-		["TextColor3"] = Color3.fromHex("#dddddd"),
-		["Font"] = Enum.Font.SourceSans,
-		["TextSize"] = 16,
-	},
-	["Button"] = {
-		["BackgroundColor3"] = Color3.fromHex("#111111"),
+local Defaults = {
+	["AlignX"] = "Left",
+	["AlignY"] = "Top",
+	["Position"] = UDim2.new(0, 0, 0, 0),
+	["Size"] = UDim2.new(0, 100, 0, 100),
+	["Theme"] = {
+		["Margin"] = 4,
+		["BorderRadius"] = 8,
+		["Frame"] = {
+			["BackgroundColor3"] = Color3.fromHex("#222222"),
+		},
+		["Text"] = {
+			["BackgroundColor3"] = Color3.fromHex("#222222"),
+			["TextColor3"] = Color3.fromHex("#dddddd"),
+			["Font"] = Enum.Font.SourceSans,
+			["TextSize"] = 16,
+		},
+		["Image"] = {
+			["BackgroundColor3"] = Color3.fromHex("#222222"),
+			["Image"] = "rbxassetid://8036970459",
+		},
+		["Button"] = {
+			["BackgroundColor3"] = Color3.fromHex("#111111"),
+		},	
 	},
 }
 
@@ -28,119 +40,191 @@ local module = {}
 function module.New (instance : string, args)
 	local new
 	
+	--basic setup that all objects go through
+	local function Setup (new, args)
+		new.Parent = args.Parent
+		new.Name = args.Name or "instance"
+		new.Position = Defaults.Position
+		new.Size = Defaults.Size
+		cs:AddTag(new, "UI")
+		
+		new:SetAttribute("AlignX", args.AlignX or Defaults.AlignX)
+		new:SetAttribute("AlignY", args.AlignY or Defaults.AlignY)
+		new:SetAttribute("Position", args.Position or Defaults.Position)
+		new:SetAttribute("Size", args.Size or Defaults.Size)
+		
+		local corner = Instance.new("UICorner")
+		corner.Parent = new
+		corner.CornerRadius = UDim.new(0, Defaults.Theme.BorderRadius)
+	end
+	
+	--basic types
 	local function Frame (args)
 		local new
 		new = Instance.new("Frame")
-		new.Parent = args.Parent
-		new.Name = args.Name or "instance"
-		new.Position = UDim2.fromOffset(0, 0)
-		new.Size = UDim2.fromOffset(100, 100)
-		cs:AddTag(new, "UI")
+		Setup(new, args)
 		cs:AddTag(new, "Frame")
 		
 		--properties
-		new:SetAttribute("BackgroundColor3", Theme.Frame.BackgroundColor3)
-		
-		new:SetAttribute("Position", args.Position or UDim2.new(0, 0, 0, 0))
-		new:SetAttribute("Size", args.Size or UDim2.new(0, 100, 0, 100))
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Frame.BackgroundColor3)
 		
 		return new
 	end
 	
-	if instance == "Frame" then new = Frame(args) end
-	
 	local function Text (args)
 		local new
 		new = Instance.new("TextLabel")
-		new.Parent = args.Parent
-		new.Name = args.Name or "instance"
-		new.Position = UDim2.fromOffset(0, 0)
-		new.Size = UDim2.fromOffset(100, 100)
-		cs:AddTag(new, "UI")
+		Setup(new, args)
 		cs:AddTag(new, "Text")
 		
 		--properties
-		new:SetAttribute("BackgroundColor3", Theme.Text.BackgroundColor3)
-		new:SetAttribute("TextColor3", Theme.Text.TextColor3)
-		new:SetAttribute("Font", Theme.Text.Font)
-		new:SetAttribute("TextSize", Theme.Text.TextSize)
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Text.BackgroundColor3)
+		new:SetAttribute("TextColor3", Defaults.Theme.Text.TextColor3)
+		new:SetAttribute("Font", Defaults.Theme.Text.Font)
+		new:SetAttribute("TextSize", Defaults.Theme.Text.TextSize)
 		
-		new:SetAttribute("Position", args.Position or UDim2.new(0, 0, 0, 0))
-		new:SetAttribute("Size", args.Size or UDim2.new(0, 100, 0, 100))
 		return new
 	end
 	
 	local function Image (args)
 		local new
 		new = Instance.new("ImageLabel")
-		new.Parent = args.Parent
-		new.Name = args.Name or "instance"
-		new.Position = UDim2.fromOffset(0, 0)
-		new.Size = UDim2.fromOffset(100, 100)
-		new.Image = args.Image or "rbxassetid://8036970459"
-		cs:AddTag(new, "UI")
+		Setup(new, args)
+		new.Image = args.Image or Defaults.Theme.Image.Image
 		cs:AddTag(new, "Image")
 
 		--properties
-		new:SetAttribute("BackgroundColor3", Theme.Text.BackgroundColor3)
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Image.BackgroundColor3)
+		
+		return new
+	end
+	
+	local function Group (args)
+		local new
+		new = Instance.new("CanvasGroup")
+		Setup(new, args)
+		cs:AddTag(new, "Group")
 
-		new:SetAttribute("Position", args.Position or UDim2.new(0, 0, 0, 0))
-		new:SetAttribute("Size", args.Size or UDim2.new(0, 100, 0, 100))
+		--properties
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Frame.BackgroundColor3)
+		
 		return new
 	end
 	
 	if instance == "Frame" then new = Frame(args) end
 	
-	if instance == "Text" then new = Frame(args) end
+	if instance == "Text" then new = Text(args) end
 	
+	if instance == "Image" then new = Image(args) end
+	
+	if instance == "Group" then new = Group(args) end
+	
+	--Advanced Types
 	if instance == "Button" then
 		--actual button
 		new = Frame(args)
-		new.Active = true
 		cs:AddTag(new, "Button")
+		
+		local image = Image({Name = "Image", Parent = new})
 		--it's event
 		local event = Instance.new("BindableEvent")
 		event.Parent = new
 		event.Name = "Event"
-		--themeing
-		new:SetAttribute("BackgroundColor3", Theme.Button.BackgroundColor3)
-
-		new:SetAttribute("Position", args.Position or UDim2.new(0, 0, 0, 0))
-		new:SetAttribute("Size", args.Size or UDim2.new(0, 100, 0, 100))
-	end
-	
-	if new then
-		local corner = Instance.new("UICorner")
-		corner.Parent = new
-		corner.CornerRadius = UDim.new(0, Theme.BorderRadius)
+		
+		--properties	
+		new:SetAttribute("Hover", false)
+		new:SetAttribute("Click", false)
+		
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.BackgroundColor3)
 	end
 	
 	return new
 end
 
 function module.Update (input)
+	--[[
+	Formating and such
+	--]]
 	for i, instance in ipairs(cs:GetTagged("UI")) do
-		instance.Position = instance:GetAttribute("Position")
-		instance.Size = instance:GetAttribute("Size")
+		--positioning
+		instance.Position = UDim2.fromOffset(
+			instance:GetAttribute("Position").X.Offset 
+			+ Defaults.Theme.Margin
+			,
+			instance:GetAttribute("Position").Y.Offset 
+			+ Defaults.Theme.Margin
+		)
+		--sizing
+		instance.Size = UDim2.fromOffset(
+			instance:GetAttribute("Size").X.Offset 
+				+ if 
+				--find right side
+				(instance:GetAttribute("Position").X.Offset + Defaults.Theme.Margin) --position from left side (including margin)
+				+ instance:GetAttribute("Size").X.Offset --now position on right side (wow found it)
+				> 
+				instance.Parent.AbsoluteSize.X - Defaults.Theme.Margin --see if the right side extends past the available size
+				then
+				--if it does extend to far then find the number we need to correct for it (basically the same as before)
+				(instance.Parent.AbsoluteSize.X - Defaults.Theme.Margin) - ((instance:GetAttribute("Position").X.Offset + Defaults.Theme.Margin) + instance:GetAttribute("Size").X.Offset)
+				else
+				--if it does not extend then change nothing
+				0
+			, 
+			instance:GetAttribute("Size").Y.Offset 
+				+ if 
+				--find right side
+				(instance:GetAttribute("Position").Y.Offset + Defaults.Theme.Margin) --position from left side (including margin)
+				+ instance:GetAttribute("Size").Y.Offset --now position on right side (wow found it)
+				> 
+				instance.Parent.AbsoluteSize.Y - Defaults.Theme.Margin --see if the right side extends past the available size
+				then
+				--if it does extend to far then find the number we need to correct for it (basically the same as before)
+				(instance.Parent.AbsoluteSize.Y - Defaults.Theme.Margin) - ((instance:GetAttribute("Position").Y.Offset + Defaults.Theme.Margin) + instance:GetAttribute("Size").Y.Offset)
+				else
+				--if it does not extend then change nothing
+				0
+		)
+		
+		instance.BackgroundColor3 = instance:GetAttribute("BackgroundColor3")
 		--TODO: Find a better way to do this
 	end
 	
-	if input then
-		for i, button in ipairs(cs:GetTagged("Button")) do
-			if --mouse collision checks
-				button.AbsolutePosition.X < m.X and 
-				button.AbsolutePosition.X + button.AbsoluteSize.X > m.X
-				and
-				button.AbsolutePosition.Y < m.Y and 
-				button.AbsolutePosition.Y + button.AbsoluteSize.Y > m.Y
-			then
-				if input.UserInputType == Enum.UserInputType.MouseButton1 then
-					button.Event:Fire()
-				end
+	--[[
+	button Stuff
+	--]]
+	for i, button in ipairs(cs:GetTagged("Button")) do
+		--hover logic
+		if --mouse collision checks (basic box collision thing)
+			button.AbsolutePosition.X < m.X and 
+			button.AbsolutePosition.X + button.AbsoluteSize.X > m.X
+			and
+			button.AbsolutePosition.Y < m.Y and 
+			button.AbsolutePosition.Y + button.AbsoluteSize.Y > m.Y
+		then
+			--mouse is hovering
+			button:SetAttribute("Hover", true)
+		else
+			--mouse is not hovering
+			button:SetAttribute("Hover", false)
+		end
+		--click logic
+		if mouseState and button:GetAttribute("Hover") then
+			--mouse is down and hovering
+			button:SetAttribute("Click", true)
+		end
+		if not mouseState then
+			--if mouse is up
+			if button:GetAttribute("Hover") and button:GetAttribute("Click") then
+				--if mouse is (technically) up and still hovering button (basically just lets the user unclick a button)
+				button.Event:Fire()
 			end
+			button:SetAttribute("Click", false)
 		end
 	end
 end
+
+m.Button1Down:Connect(function () mouseState = true end)
+m.Button1Up:Connect(function () mouseState = false end)
 
 cs.TagAdded:Connect(module.Update)
 uip.InputBegan:Connect(module.Update)
