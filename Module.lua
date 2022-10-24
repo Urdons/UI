@@ -146,44 +146,65 @@ function module.Update (input)
 	Formating and such
 	--]]
 	for i, instance in ipairs(cs:GetTagged("UI")) do
-		--positioning
-		instance.Position = UDim2.fromOffset(
-			instance:GetAttribute("Position").X.Offset 
-			+ Defaults.Theme.Margin
-			,
-			instance:GetAttribute("Position").Y.Offset 
-			+ Defaults.Theme.Margin
-		)
-		--sizing
-		instance.Size = UDim2.fromOffset(
-			instance:GetAttribute("Size").X.Offset 
-				+ if 
-				--find right side
-				(instance:GetAttribute("Position").X.Offset + Defaults.Theme.Margin) --position from left side (including margin)
-				+ instance:GetAttribute("Size").X.Offset --now position on right side (wow found it)
-				> 
-				instance.Parent.AbsoluteSize.X - Defaults.Theme.Margin --see if the right side extends past the available size
-				then
-				--if it does extend to far then find the number we need to correct for it (basically the same as before)
-				(instance.Parent.AbsoluteSize.X - Defaults.Theme.Margin) - ((instance:GetAttribute("Position").X.Offset + Defaults.Theme.Margin) + instance:GetAttribute("Size").X.Offset)
+		local margin = Defaults.Theme.Margin
+		local pos = instance:GetAttribute("Position")
+		local siz = instance:GetAttribute("Size")
+		local alX = instance:GetAttribute("AlignX")
+		local alY = instance:GetAttribute("AlignY")
+		
+		local function align (axis : string, al : string, pos : number, siz : number)
+			--all comments in this function pertain to the X axis, to understand what they mean when it comes to the Y axis then rotate 90 degrees
+			local endPos
+			local endSiz
+			--left allign x
+			if al == "Left" or al == "Top" then
+				--constrain size to parent object
+				local is = (pos + margin) + siz --right side of instance
+				local ps = instance.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
+				--if right side extends past right inner bound then constrain it
+				if is > ps then
+					endSiz = siz + (ps - is)
 				else
-				--if it does not extend then change nothing
-				0
-			, 
-			instance:GetAttribute("Size").Y.Offset 
-				+ if 
-				--find right side
-				(instance:GetAttribute("Position").Y.Offset + Defaults.Theme.Margin) --position from left side (including margin)
-				+ instance:GetAttribute("Size").Y.Offset --now position on right side (wow found it)
-				> 
-				instance.Parent.AbsoluteSize.Y - Defaults.Theme.Margin --see if the right side extends past the available size
-				then
-				--if it does extend to far then find the number we need to correct for it (basically the same as before)
-				(instance.Parent.AbsoluteSize.Y - Defaults.Theme.Margin) - ((instance:GetAttribute("Position").Y.Offset + Defaults.Theme.Margin) + instance:GetAttribute("Size").Y.Offset)
+					endSiz = siz
+				end
+				--allign the object to the left
+				endPos = pos + margin
+			end
+			--center allign x
+			if al == "Center" then
+				--constrain size to parent object
+				local ps = instance.Parent.AbsoluteSize[axis] - margin * 2 --parent size including the margins on both sides
+				if siz > ps then --same routine
+					endSiz = siz + (ps - siz)
 				else
-				--if it does not extend then change nothing
-				0
-		)
+					endSiz = siz
+				end
+				--align the object to the center
+				endPos = ps / 2 - siz / 2
+			end
+			--right allign x
+			if al == "Right" or al == "Bottom" then--basically the same as Left align except positions differently
+				--constrain size to parent object
+				local is = (pos + margin) + siz --right side of instance
+				local ps = instance.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
+				--if right side extends past right inner bound then constrain it
+				if is > ps then
+					endSiz = siz + (ps - is)
+				else
+					endSiz = siz
+				end
+				--allign the object to the right
+				endPos = pos - margin - siz + instance.Parent.AbsoluteSize[axis]
+			end
+			
+			return endPos, endSiz
+		end
+		
+		local xp, xs = align("X", alX, pos.X.Offset, siz.X.Offset)
+		local yp, ys = align("Y", alY, pos.Y.Offset, siz.Y.Offset)
+		
+		instance.Position = UDim2.fromOffset(xp, yp)
+		instance.Size = UDim2.fromOffset(xs, ys)
 		
 		instance.BackgroundColor3 = instance:GetAttribute("BackgroundColor3")
 		--TODO: Find a better way to do this
