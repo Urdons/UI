@@ -30,7 +30,15 @@ local Defaults = {
 			["Image"] = "rbxassetid://8036970459",
 		},
 		["Button"] = {
-			["BackgroundColor3"] = Color3.fromHex("#111111"),
+			["Normal"] = {
+				["BackgroundColor3"] = Color3.fromHex("#111111"),
+			},
+			["Hover"] = {
+				["BackgroundColor3"] = Color3.fromHex("#333333"),
+			},
+			["Click"] = {
+				["BackgroundColor3"] = Color3.fromHex("#dddddd"),
+			},
 		},	
 	},
 }
@@ -80,7 +88,7 @@ function module.New (instance : string, args)
 		--properties
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Text.BackgroundColor3)
 		new:SetAttribute("TextColor3", Defaults.Theme.Text.TextColor3)
-		new:SetAttribute("Font", Defaults.Theme.Text.Font)
+		new.Font = Defaults.Theme.Text.Font
 		new:SetAttribute("TextSize", Defaults.Theme.Text.TextSize)
 		
 		return new
@@ -120,7 +128,7 @@ function module.New (instance : string, args)
 	if instance == "Group" then new = Group(args) end
 	
 	--Advanced Types
-	if instance == "Button" then
+	if instance == "ImgButton" then
 		--actual button
 		new = Frame(args)
 		cs:AddTag(new, "Button")
@@ -135,7 +143,25 @@ function module.New (instance : string, args)
 		new:SetAttribute("Hover", false)
 		new:SetAttribute("Click", false)
 		
-		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.BackgroundColor3)
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
+	end
+	
+	if instance == "TextButton" then
+		--actual button
+		new = Frame(args)
+		cs:AddTag(new, "Button")
+
+		local text = Text({Name = "Text", Parent = new})
+		--it's event
+		local event = Instance.new("BindableEvent")
+		event.Parent = new
+		event.Name = "Event"
+
+		--properties	
+		new:SetAttribute("Hover", false)
+		new:SetAttribute("Click", false)
+
+		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
 	end
 	
 	return new
@@ -205,6 +231,10 @@ function module.Update (input)
 		
 		instance.Position = UDim2.fromOffset(xp, yp)
 		instance.Size = UDim2.fromOffset(xs, ys)
+		if cs:HasTag(instance, "Text") then
+			instance.TextColor3 = instance:GetAttribute("TextColor3")
+			instance.TextSize = instance:GetAttribute("TextSize")
+		end
 		
 		instance.BackgroundColor3 = instance:GetAttribute("BackgroundColor3")
 		--TODO: Find a better way to do this
@@ -213,6 +243,12 @@ function module.Update (input)
 	--[[
 	button Stuff
 	--]]
+	local function blend (button, state)
+		for i = 0, 1, 0.1 do
+			button.BackgroundColor3 = button.BackgroundColor3:Lerp(Defaults.Theme.Button[state].BackgroundColor3, i)
+			wait()
+		end
+	end
 	for i, button in ipairs(cs:GetTagged("Button")) do
 		--hover logic
 		if --mouse collision checks (basic box collision thing)
@@ -240,6 +276,14 @@ function module.Update (input)
 				button.Event:Fire()
 			end
 			button:SetAttribute("Click", false)
+		end
+		--update colors
+		if button:GetAttribute("Click") then
+			button.BackgroundColor3 = Defaults.Theme.Button.Click.BackgroundColor3
+		elseif button:GetAttribute("Hover") then
+			button.BackgroundColor3 = Defaults.Theme.Button.Hover.BackgroundColor3
+		else
+			button.BackgroundColor3 = Defaults.Theme.Button.Normal.BackgroundColor3
 		end
 	end
 end
