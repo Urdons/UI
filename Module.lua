@@ -47,17 +47,17 @@ local Defaults = {
 
 local module = {}
 
-function module.New (instance : string, args)
+function module.New (element : string, args)
 	local new
 	
-	if instance == "root" then
+	if element == "root" then
 		root = args
 	end
 	
 	--basic setup that all objects go through
 	local function Setup (new, args)
 		new.Parent = args.Parent
-		new.Name = args.Name or "instance"
+		new.Name = args.Name or "element"
 		new.Position = Defaults.Position
 		new.Size = Defaults.Size
 		cs:AddTag(new, "UI")
@@ -125,16 +125,16 @@ function module.New (instance : string, args)
 		return new
 	end
 	
-	if instance == "Frame" then new = Frame(args) end
+	if element == "Frame" then new = Frame(args) end
 	
-	if instance == "Text" then new = Text(args) end
+	if element == "Text" then new = Text(args) end
 	
-	if instance == "Image" then new = Image(args) end
+	if element == "Image" then new = Image(args) end
 	
-	if instance == "Group" then new = Group(args) end
+	if element == "Group" then new = Group(args) end
 	
 	--Advanced Types
-	if instance == "ImgButton" then
+	if element == "ImgButton" then
 		--actual button
 		new = Frame(args)
 		cs:AddTag(new, "Button")
@@ -154,7 +154,7 @@ function module.New (instance : string, args)
 		new:SetAttribute("ClickColor3", Defaults.Theme.Button.Click.BackgroundColor3)
 	end
 	
-	if instance == "TextButton" then
+	if element == "TextButton" then
 		--actual button
 		new = Frame(args)
 		cs:AddTag(new, "Button")
@@ -176,119 +176,135 @@ function module.New (instance : string, args)
 end
 
 function module.Update (step)
-	if typeof(step) ~= "number" then step = 1 end --make sure step is real, if not, get real
-	--[[
-	Formating and such
-	--]]
-	for i, instance in ipairs(cs:GetTagged("UI")) do
-		local margin = Defaults.Theme.Margin
-		local pos = instance:GetAttribute("Position")
-		local siz = instance:GetAttribute("Size")
-		local alX = instance:GetAttribute("AlignX")
-		local alY = instance:GetAttribute("AlignY")
-		
-		local function align (axis : string, al : string, pos : number, siz : number)
-			--all comments in this function pertain to the X axis, to understand what they mean when it comes to the Y axis then rotate 90 degrees
-			local endPos
-			local endSiz
-			--left allign x
-			if al == "Left" or al == "Top" then
-				--constrain size to parent object
-				local is = (pos + margin) + siz --right side of instance
-				local ps = instance.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
-				--if right side extends past right inner bound then constrain it
-				if is > ps then
-					endSiz = siz + (ps - is)
-				else
-					endSiz = siz
-				end
-				--allign the object to the left
-				endPos = pos + margin
-			end
-			--center allign x
-			if al == "Center" then
-				--constrain size to parent object
-				local ps = instance.Parent.AbsoluteSize[axis] - margin * 2 --parent size including the margins on both sides
-				if siz > ps then --same routine
-					endSiz = siz + (ps - siz)
-				else
-					endSiz = siz
-				end
-				--align the object to the center
-				endPos = ps / 2 - siz / 2
-			end
-			--right allign x
-			if al == "Right" or al == "Bottom" then--basically the same as Left align except positions differently
-				--constrain size to parent object
-				local is = (pos + margin) + siz --right side of instance
-				local ps = instance.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
-				--if right side extends past right inner bound then constrain it
-				if is > ps then
-					endSiz = siz + (ps - is)
-				else
-					endSiz = siz
-				end
-				--allign the object to the right
-				endPos = pos - margin - siz + instance.Parent.AbsoluteSize[axis]
-			end
-			
-			return endPos, endSiz
-		end
-		
-		local xp, xs = align("X", alX, pos.X.Offset, siz.X.Offset)
-		local yp, ys = align("Y", alY, pos.Y.Offset, siz.Y.Offset)
-		
-		instance.Position = UDim2.fromOffset(xp, yp)
-		instance.Size = UDim2.fromOffset(xs, ys)
-		if cs:HasTag(instance, "Text") then
-			instance.TextColor3 = instance:GetAttribute("TextColor3")
-			instance.TextSize = instance:GetAttribute("TextSize")
-		end
-		
-		if not cs:HasTag(instance, "Button") then
-			instance.BackgroundColor3 = instance:GetAttribute("BackgroundColor3")
-		end
-		--TODO: Find a better way to do this
-	end
+	if typeof(step) ~= "number" then step = 0 end --make sure step is real, if not, get real
 	
-	--[[
-	button Stuff
-	--]]
-	for i, button in ipairs(cs:GetTagged("Button")) do
-		--hover logic
-		if --mouse collision checks (basic box collision thing)
-			button.AbsolutePosition.X < m.X and 
-			button.AbsolutePosition.X + button.AbsoluteSize.X > m.X
-			and
-			button.AbsolutePosition.Y < m.Y and 
-			button.AbsolutePosition.Y + button.AbsoluteSize.Y > m.Y
-		then
-			--mouse is hovering
-			button:SetAttribute("Hover", true)
-		else
-			--mouse is not hovering
-			button:SetAttribute("Hover", false)
-		end
-		--click logic
-		if mouseState and button:GetAttribute("Hover") then
-			--mouse is down and hovering
-			button:SetAttribute("Click", true)
-		end
-		if not mouseState then
-			--if mouse is up
-			if button:GetAttribute("Hover") and button:GetAttribute("Click") then
-				--if mouse is (technically) up and still hovering button (basically just lets the user unclick a button)
-				button.Event:Fire()
+	local roots = {root} --setup loop with the root object
+	while true do
+		local elements = {}
+		--go through all the roots
+		for j, r in ipairs(roots) do
+			--go through and filter out the UI stuff
+			for k, child in ipairs(r:GetChildren()) do
+				if cs:HasTag(child, "UI") then
+					table.insert(elements, child)
+				end
 			end
-			button:SetAttribute("Click", false)
 		end
-		--hover and click effect (with blending)
-		if button:GetAttribute("Click") then
-			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("ClickColor3"), step * 15)
-		elseif button:GetAttribute("Hover") then
-			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("HoverColor3"), step * 15)
-		else
-			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("BackgroundColor3"), step * 15)
+		if #elements == 0 then break end --if there are none then kill the loop
+		--reset stuff (so it loops)
+		roots = elements
+		
+		--do the checks
+		for i, element in ipairs(elements) do
+			local margin = Defaults.Theme.Margin
+			local pos = element:GetAttribute("Position")
+			local siz = element:GetAttribute("Size")
+			local alX = element:GetAttribute("AlignX")
+			local alY = element:GetAttribute("AlignY")
+
+			local function align (axis : string, al : string, pos : number, siz : number)
+				--all comments in this function pertain to the X axis, to understand what they mean when it comes to the Y axis then rotate 90 degrees
+				local endPos
+				local endSiz
+				--left allign x
+				if al == "Left" or al == "Top" then
+					--constrain size to parent object
+					local is = (pos + margin) + siz --right side of element
+					local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
+					--if right side extends past right inner bound then constrain it
+					if is > ps then
+						endSiz = siz + (ps - is)
+					else
+						endSiz = siz
+					end
+					--allign the object to the left
+					endPos = pos + margin
+				end
+				--center allign x
+				if al == "Center" then
+					--constrain size to parent object
+					local ps = element.Parent.AbsoluteSize[axis] - margin * 2 --parent size including the margins on both sides
+					if siz > ps then --same routine
+						endSiz = siz + (ps - siz)
+					else
+						endSiz = siz
+					end
+					--align the object to the center
+					endPos = ps / 2 - siz / 2
+				end
+				--right allign x
+				if al == "Right" or al == "Bottom" then--basically the same as Left align except positions differently
+					--constrain size to parent object
+					local is = (pos + margin) + siz --right side of element
+					local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
+					--if right side extends past right inner bound then constrain it
+					if is > ps then
+						endSiz = siz + (ps - is)
+					else
+						endSiz = siz
+					end
+					--allign the object to the right
+					endPos = pos - margin - siz + element.Parent.AbsoluteSize[axis]
+				end
+
+				return endPos, endSiz
+			end
+
+			local xp, xs = align("X", alX, pos.X.Offset, siz.X.Offset)
+			local yp, ys = align("Y", alY, pos.Y.Offset, siz.Y.Offset)
+
+			element.Position = UDim2.fromOffset(xp, yp)
+			element.Size = UDim2.fromOffset(xs, ys)
+			if cs:HasTag(element, "Text") then
+				element.TextColor3 = element:GetAttribute("TextColor3")
+				element.TextSize = element:GetAttribute("TextSize")
+			end
+
+			if not cs:HasTag(element, "Button") then
+				element.BackgroundColor3 = element:GetAttribute("BackgroundColor3")
+			end
+			--TODO: Find a better way to do this
+			
+			--[[
+			button Stuff
+			--]]
+			if cs:HasTag(element, "Button") then
+				--hover logic
+				if --mouse collision checks (basic box collision thing)
+					element.AbsolutePosition.X < m.X and 
+					element.AbsolutePosition.X + element.AbsoluteSize.X > m.X
+					and
+					element.AbsolutePosition.Y < m.Y and 
+					element.AbsolutePosition.Y + element.AbsoluteSize.Y > m.Y
+				then
+					--mouse is hovering
+					element:SetAttribute("Hover", true)
+				else
+					--mouse is not hovering
+					element:SetAttribute("Hover", false)
+				end
+				--click logic
+				if mouseState and element:GetAttribute("Hover") then
+					--mouse is down and hovering
+					element:SetAttribute("Click", true)
+				end
+				if not mouseState then
+					--if mouse is up
+					if element:GetAttribute("Hover") and element:GetAttribute("Click") then
+						--if mouse is (technically) up and still hovering button (basically just lets the user unclick a button)
+						element.Event:Fire()
+					end
+					element:SetAttribute("Click", false)
+				end
+				--hover and click effect (with blending)
+				if element:GetAttribute("Click") then
+					element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("ClickColor3"), step * 15)
+				elseif element:GetAttribute("Hover") then
+					element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("HoverColor3"), step * 15)
+				else
+					element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("BackgroundColor3"), step * 15)
+				end
+			end
 		end
 	end
 end
@@ -296,7 +312,7 @@ end
 m.Button1Down:Connect(function () mouseState = true end)
 m.Button1Up:Connect(function () mouseState = false end)
 
-uip.InputBegan:Connect(module.Update)
+--uip.InputBegan:Connect(module.Update)
 runs.RenderStepped:Connect(module.Update)
 
 return module
