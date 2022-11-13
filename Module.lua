@@ -6,6 +6,7 @@ local runs = game:GetService("RunService")
 
 local t = require(rs.Theme)
 
+local root
 local mouseState = false
 
 --default theme
@@ -49,6 +50,10 @@ local module = {}
 function module.New (instance : string, args)
 	local new
 	
+	if instance == "root" then
+		root = args
+	end
+	
 	--basic setup that all objects go through
 	local function Setup (new, args)
 		new.Parent = args.Parent
@@ -61,7 +66,6 @@ function module.New (instance : string, args)
 		new:SetAttribute("AlignY", args.AlignY or Defaults.AlignY)
 		new:SetAttribute("Position", args.Position or Defaults.Position)
 		new:SetAttribute("Size", args.Size or Defaults.Size)
-		new:SetAttribute("AnimFrame", 0)
 		
 		local corner = Instance.new("UICorner")
 		corner.Parent = new
@@ -146,6 +150,8 @@ function module.New (instance : string, args)
 		new:SetAttribute("Click", false)
 		
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
+		new:SetAttribute("HoverColor3", Defaults.Theme.Button.Hover.BackgroundColor3)
+		new:SetAttribute("ClickColor3", Defaults.Theme.Button.Click.BackgroundColor3)
 	end
 	
 	if instance == "TextButton" then
@@ -169,7 +175,8 @@ function module.New (instance : string, args)
 	return new
 end
 
-function module.Update ()
+function module.Update (step)
+	if typeof(step) ~= "number" then step = 1 end --make sure step is real, if not, get real
 	--[[
 	Formating and such
 	--]]
@@ -247,13 +254,6 @@ function module.Update ()
 	--[[
 	button Stuff
 	--]]
-	local function blend (button, state)
-		button:SetAttribute("AnimFrame", button:GetAttribute("AnimFrame") + 0.05)
-		if button:GetAttribute("AnimFrame") > 1 then
-			button:SetAttribute("AnimFrame", 0)
-		end
-		button.BackgroundColor3 = button.BackgroundColor3:Lerp(Defaults.Theme.Button[state].BackgroundColor3, button:GetAttribute("AnimFrame"))
-	end
 	for i, button in ipairs(cs:GetTagged("Button")) do
 		--hover logic
 		if --mouse collision checks (basic box collision thing)
@@ -282,15 +282,13 @@ function module.Update ()
 			end
 			button:SetAttribute("Click", false)
 		end
-		--update colors
-		if not button:GetAttribute("Animating") then
-			if button:GetAttribute("Click") then
-				blend(button, "Click")
-			elseif button:GetAttribute("Hover") then
-				blend(button, "Hover")
-			else
-				blend(button, "Normal")
-			end
+		--hover and click effect (with blending)
+		if button:GetAttribute("Click") then
+			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("ClickColor3"), step * 15)
+		elseif button:GetAttribute("Hover") then
+			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("HoverColor3"), step * 15)
+		else
+			button.BackgroundColor3 = button.BackgroundColor3:Lerp(button:GetAttribute("BackgroundColor3"), step * 15)
 		end
 	end
 end
@@ -299,6 +297,6 @@ m.Button1Down:Connect(function () mouseState = true end)
 m.Button1Up:Connect(function () mouseState = false end)
 
 uip.InputBegan:Connect(module.Update)
-runs.PreRender:Connect(module.Update)
+runs.RenderStepped:Connect(module.Update)
 
 return module
