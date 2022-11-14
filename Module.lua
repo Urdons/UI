@@ -66,6 +66,9 @@ function module.New (element : string, args)
 		new:SetAttribute("AlignY", args.AlignY or Defaults.AlignY)
 		new:SetAttribute("Position", args.Position or Defaults.Position)
 		new:SetAttribute("Size", args.Size or Defaults.Size)
+		new:SetAttribute("Index", args.Index or 0)
+		new:SetAttribute("AspectRatio", args.AspectRatio or Vector2.new(1, 1))
+		new:SetAttribute("ForceAspectRatio", args.ForceAspectRatio or false)
 		
 		local corner = Instance.new("UICorner")
 		corner.Parent = new
@@ -134,42 +137,49 @@ function module.New (element : string, args)
 	if element == "Group" then new = Group(args) end
 	
 	--Advanced Types
-	if element == "ImgButton" then
+	local function Button (args)
 		--actual button
-		new = Frame(args)
+		local new = Frame(args)
 		cs:AddTag(new, "Button")
-		
-		local image = Image({Name = "Image", Parent = new})
+
 		--it's event
 		local event = Instance.new("BindableEvent")
 		event.Parent = new
 		event.Name = "Event"
-		
+
 		--properties	
 		new:SetAttribute("Hover", false)
 		new:SetAttribute("Click", false)
-		
+
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
 		new:SetAttribute("HoverColor3", Defaults.Theme.Button.Hover.BackgroundColor3)
 		new:SetAttribute("ClickColor3", Defaults.Theme.Button.Click.BackgroundColor3)
+		
+		return new
+	end
+	
+	if element == "Button" then new = Button(args) end
+	
+	if element == "ImgButton" then
+		--actual button
+		new = Button(args)
+		
+		local image = Image({Name = "Image", Parent = new})
 	end
 	
 	if element == "TextButton" then
 		--actual button
-		new = Frame(args)
-		cs:AddTag(new, "Button")
+		new = Button(args)
 
 		local text = Text({Name = "Text", Parent = new})
-		--it's event
-		local event = Instance.new("BindableEvent")
-		event.Parent = new
-		event.Name = "Event"
-
-		--properties	
-		new:SetAttribute("Hover", false)
-		new:SetAttribute("Click", false)
-
-		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
+	end
+	
+	if element == "ImgAndTextButton" then
+		--actual button
+		new = Button(args)
+		
+		local image = Image({Name = "Image", Parent = new, XAlign = "Left", YAlign = "Center", ForceAspectRatio = true, Size = args.Size})
+		local text = Text({Name = "Text", Parent = new, XAlign = "Right", YAlign = "Center", Size = args.Size})
 	end
 	
 	return new
@@ -201,10 +211,12 @@ function module.Update (step)
 			local bounds = {
 				["X"] = {
 					["Left"] = Defaults.Theme.Margin, 
-					["Right"] = e[1].Parent.AbsoluteSize.X - Defaults.Theme.Margin},
+					["Right"] = e[1].Parent.AbsoluteSize.X - Defaults.Theme.Margin
+				},
 				["Y"] = {
 					["Left"] = Defaults.Theme.Margin, 
-					["Right"] = e[1].Parent.AbsoluteSize.Y - Defaults.Theme.Margin}
+					["Right"] = e[1].Parent.AbsoluteSize.Y - Defaults.Theme.Margin
+				}
 			}
 			
 			for j, element in ipairs(e) do
@@ -223,7 +235,7 @@ function module.Update (step)
 					--left allign x
 					if al == "Left" or al == "Top" then
 						--constrain size to parent object
-						local is = (pos + margin) + siz --right side of element
+						local is = (bounds[axis].Left + pos) + siz --right side of element
 						--local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
 						--if right side extends past right inner bound then constrain it
 						if is > bounds[axis].Right then
@@ -232,9 +244,7 @@ function module.Update (step)
 							endSiz = siz
 						end
 						--allign the object to the left
-						endPos = bounds[axis].Left
-						--update bounds
-						bounds[axis].Left = bounds[axis].Left + siz + margin
+						endPos = bounds[axis].Left + pos
 					end
 					--center allign x
 					--TODO: implement properly for center allignment lol
@@ -252,7 +262,7 @@ function module.Update (step)
 					--right allign x
 					if al == "Right" or al == "Bottom" then--basically the same as Left align except positions differently
 						--constrain size to parent object
-						local is = (pos + margin) + siz --right side of element
+						local is = (bounds[axis].Left + pos) + siz --right side of element
 						--local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
 						--if right side extends past right inner bound then constrain it
 						if is > bounds[axis].Right then
@@ -262,17 +272,39 @@ function module.Update (step)
 						end
 						--allign the object to the right
 						endPos = pos - margin - siz + bounds[axis].Right
-						--update bounds
-						bounds[axis].Right = bounds[axis].Right - siz - margin
 					end
 	
 					return endPos, endSiz
 				end
 				
-				print(bounds)
+				print(element, bounds)
 	
 				local xp, xs = align("X", alX, pos.X.Offset, siz.X.Offset)
 				local yp, ys = align("Y", alY, pos.Y.Offset, siz.Y.Offset)
+				
+				if element:GetAttribute("ForceAspectRatio") then
+					if xs < ys then --not quite finished aspect ratio thing
+						ys = xs
+					else
+						xs = ys
+					end
+				end
+				
+				--update bounds
+				if alX == "Left" or alX == "Top" then
+					bounds.X.Left = bounds.X.Left + xs + margin
+				end
+				if alX == "Right" or alX == "Bottom" then
+					bounds.X.Right = bounds.X.Right - xs - margin
+				end
+				--[[ TODO: TEMPORARY WORKAROUND BEFORE I REDO THE ALIGN THING JUST DONT WORRY ABOUT IT LOL
+				if alY == "Left" or alY == "Top" then
+					bounds.Y.Left = bounds.Y.Left + ys + margin
+				end
+				if alY == "Right" or alY == "Bottom" then
+					bounds.X.Right = bounds.X.Right - ys - margin
+				end
+				]]
 	
 				element.Position = UDim2.fromOffset(xp, yp)
 				element.Size = UDim2.fromOffset(xs, ys)
