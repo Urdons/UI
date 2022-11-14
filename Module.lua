@@ -1,3 +1,27 @@
+--[[
+MIT License
+
+Copyright (c) 2022 Urdons
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+]]
+
 local rs = game:GetService("ReplicatedStorage")
 local cs = game:GetService("CollectionService")
 local uip = game:GetService("UserInputService")
@@ -223,91 +247,171 @@ function module.Update (step)
 				table.insert(roots, element)
 				
 				local margin = Defaults.Theme.Margin
-				local pos = element:GetAttribute("Position")
-				local siz = element:GetAttribute("Size")
-				local alX = element:GetAttribute("AlignX")
-				local alY = element:GetAttribute("AlignY")
-	
-				local function align (axis : string, al : string, pos : number, siz : number)
-					--all comments in this function pertain to the X axis, to understand what they mean when it comes to the Y axis then rotate 90 degrees
-					local endPos
-					local endSiz
-					--left allign x
-					if al == "Left" or al == "Top" then
-						--constrain size to parent object
-						local is = (bounds[axis].Left + pos) + siz --right side of element
-						--local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
-						--if right side extends past right inner bound then constrain it
-						if is > bounds[axis].Right then
-							endSiz = siz + (bounds[axis].Right - is)
-						else
-							endSiz = siz
-						end
-						--allign the object to the left
-						endPos = bounds[axis].Left + pos
+				local position = element:GetAttribute("Position")
+				local size = element:GetAttribute("Size")
+				local alignX = element:GetAttribute("AlignX")
+				local alignY = element:GetAttribute("AlignY")
+
+				local xp
+				local xs
+				
+				local yp
+				local ys
+				
+				if alignX == "Left" then
+					--predict left bound of object
+
+					local elementLeftBound
+					if position.X.Offset < bounds.X.Left or position.X.Offset + size.X.Offset > bounds.X.Right and position.Y.Offset < bounds.Y.Left then
+						elementLeftBound = bounds.X.Left + position.X.Offset
+					else
+						elementLeftBound = position.X.Offset + margin
 					end
-					--center allign x
-					--TODO: implement properly for center allignment lol
-					if al == "Center" then
-						--constrain size to parent object
-						local ps = bounds[axis].Right - bounds[axis].Left --parent size including the margins on both sides
-						if siz > ps then --same routine
-							endSiz = siz + (ps - siz)
-						else
-							endSiz = siz
-						end
-						--align the object to the center
-						endPos = ps / 2 - siz / 2
+					
+					--constrain size to parent object
+					
+					local elementRightBound = (bounds.X.Left + position.X.Offset) + size.X.Offset --right side of element
+					--if the element's right bound extends past the right bound then
+					if elementRightBound > bounds.X.Right then
+						xs = size.X.Offset + (bounds.X.Right - elementRightBound) --constrain it
+					else
+						xs = size.X.Offset --if not do nothing
 					end
-					--right allign x
-					if al == "Right" or al == "Bottom" then--basically the same as Left align except positions differently
-						--constrain size to parent object
-						local is = (bounds[axis].Left + pos) + siz --right side of element
-						--local ps = element.Parent.AbsoluteSize[axis] - margin --right inner bound of parent
-						--if right side extends past right inner bound then constrain it
-						if is > bounds[axis].Right then
-							endSiz = siz + (bounds[axis].Right - is)
-						else
-							endSiz = siz
-						end
-						--allign the object to the right
-						endPos = pos - margin - siz + bounds[axis].Right
+					
+					--update position
+					
+					xp = bounds.X.Left + position.X.Offset
+				end
+				if alignX == "Center" then
+					--constrain size to parent object
+
+					local parentSize = bounds.X.Right - bounds.X.Left --available space left in parent object
+					--if the element's right bound extends past the right bound then
+					if size.X.Offset > bounds.X.Right then
+						xs = size.X.Offset + (bounds.X.Right - parentSize) --constrain it
+					else
+						xs = size.X.Offset --if not do nothing
 					end
-	
-					return endPos, endSiz
+
+					--update position
+
+					xp = parentSize / 2 - size / 2
+				end
+				if alignX == "Right" then
+					--predict left bound of object
+
+					local elementLeftBound
+					if position.X.Offset < bounds.X.Left or position.X.Offset + size.X.Offset > bounds.X.Right and position.Y.Offset > bounds.Y.Right then
+						elementLeftBound = bounds.X.Left + position.X.Offset
+					else
+						elementLeftBound = position.X.Offset - margin
+					end
+					
+					--constrain size to parent object
+
+					local elementRightBound = (bounds.X.Left + position.X.Offset) + size.X.Offset --right side of element
+					--if the element's right bound extends past the right bound then
+					if elementRightBound > bounds.X.Right then
+						xs = size.X.Offset + (bounds.X.Right - elementRightBound) --constrain it
+					else
+						xs = size.X.Offset --if not do nothing
+					end
+
+					--update position
+
+					xp = position.X.Offset - margin - size.X.Offset + bounds.X.Right
+				end
+				
+				if alignY == "Top" then
+					--predict left bound of object
+
+					local elementLeftBound
+					if xp < bounds.X.Left or xp + xs > bounds.X.Right and position.Y.Offset < bounds.Y.Left then
+						elementLeftBound = bounds.Y.Left + position.Y.Offset
+					else
+						elementLeftBound = position.Y.Offset + margin
+					end
+					
+					--constrain size to parent object
+					local elementRightBound = elementLeftBound + size.Y.Offset --right side of element
+					--if the element's right bound extends past the right bound then
+					if elementRightBound > bounds.Y.Right then
+						ys = size.Y.Offset + (bounds.Y.Right - elementRightBound) --constrain it
+					else
+						ys = size.Y.Offset --if not do nothing
+					end
+
+					--update position
+
+					yp = elementLeftBound
+				end
+				if alignY == "Center" then
+					--constrain size to parent object
+
+					local parentSize = bounds.Y.Right - bounds.Y.Left --available space left in parent object
+					--if the element's right bound extends past the right bound then
+					if size.Y.Offset > bounds.Y.Right then
+						ys = size.Y.Offset + (bounds.Y.Right - parentSize) --constrain it
+					else
+						ys = size.Y.Offset --if not do nothing
+					end
+
+					--update position
+
+					yp = parentSize / 2 - size / 2
+				end
+				if alignY == "Bottom" then
+					--predict left bound of object
+					
+					local elementLeftBound
+					if xp < bounds.X.Left or xp + xs > bounds.X.Right and position.Y.Offset > bounds.Y.Right then
+						elementLeftBound = bounds.Y.Left + position.Y.Offset
+					else
+						elementLeftBound = position.Y.Offset - margin
+					end
+					
+					--constrain size to parent object
+
+					local elementRightBound = elementLeftBound + size.Y.Offset --right side of element
+					--if the element's right bound extends past the right bound then
+					if elementRightBound > bounds.Y.Right then
+						ys = size.Y.Offset + (bounds.Y.Right - elementRightBound) --constrain it
+					else
+						ys = size.Y.Offset --if not do nothing
+					end
+
+					--update position
+
+					yp = elementLeftBound - margin - size.Y.Offset
 				end
 				
 				print(element, bounds)
-	
-				local xp, xs = align("X", alX, pos.X.Offset, siz.X.Offset)
-				local yp, ys = align("Y", alY, pos.Y.Offset, siz.Y.Offset)
 				
 				if element:GetAttribute("ForceAspectRatio") then
 					if xs < ys then --not quite finished aspect ratio thing
-						ys = xs
+						ys = xs * (element:GetAttribute("AspectRatio").X / element:GetAttribute("AspectRatio").Y)
 					else
-						xs = ys
+						xs = ys * (element:GetAttribute("AspectRatio").X / element:GetAttribute("AspectRatio").Y)
 					end
 				end
 				
 				--update bounds
-				if alX == "Left" or alX == "Top" then
+				if alignX == "Left" or alignX == "Top" then
 					bounds.X.Left = bounds.X.Left + xs + margin
 				end
-				if alX == "Right" or alX == "Bottom" then
+				if alignX == "Right" or alignX == "Bottom" then
 					bounds.X.Right = bounds.X.Right - xs - margin
 				end
-				--[[ TODO: TEMPORARY WORKAROUND BEFORE I REDO THE ALIGN THING JUST DONT WORRY ABOUT IT LOL
-				if alY == "Left" or alY == "Top" then
+				if alignY == "Left" or alignY == "Top" then
 					bounds.Y.Left = bounds.Y.Left + ys + margin
 				end
-				if alY == "Right" or alY == "Bottom" then
-					bounds.X.Right = bounds.X.Right - ys - margin
+				if alignY == "Right" or alignY == "Bottom" then
+					bounds.Y.Right = bounds.Y.Right - ys - margin
 				end
-				]]
 	
 				element.Position = UDim2.fromOffset(xp, yp)
 				element.Size = UDim2.fromOffset(xs, ys)
+				
 				if cs:HasTag(element, "Text") then
 					element.TextColor3 = element:GetAttribute("TextColor3")
 					element.TextSize = element:GetAttribute("TextSize")
