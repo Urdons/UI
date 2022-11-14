@@ -27,6 +27,7 @@ local cs = game:GetService("CollectionService")
 local uip = game:GetService("UserInputService")
 local m = game:GetService("Players").LocalPlayer:GetMouse()
 local runs = game:GetService("RunService")
+local ss = game:GetService("SoundService")
 
 local t = require(rs.Theme)
 
@@ -44,26 +45,32 @@ local Defaults = {
 		["BorderRadius"] = 8,
 		["Frame"] = {
 			["BackgroundColor3"] = Color3.fromHex("#222222"),
+			["BackgroundTransparency"] = 0,
 		},
 		["Text"] = {
-			["BackgroundColor3"] = Color3.fromHex("#222222"),
+			["BackgroundColor3"] = Color3.fromHex("#000000"),
+			["BackgroundTransparency"] = 1,
 			["TextColor3"] = Color3.fromHex("#dddddd"),
 			["Font"] = Enum.Font.SourceSans,
-			["TextSize"] = 16,
+			["TextSize"] = 18,
 		},
 		["Image"] = {
 			["BackgroundColor3"] = Color3.fromHex("#222222"),
+			["BackgroundTransparency"] = 0,
 			["Image"] = "rbxassetid://8036970459",
 		},
 		["Button"] = {
 			["Normal"] = {
 				["BackgroundColor3"] = Color3.fromHex("#111111"),
+				["BackgroundTransparency"] = 0,
 			},
 			["Hover"] = {
 				["BackgroundColor3"] = Color3.fromHex("#333333"),
+				["BackgroundTransparency"] = 0,
 			},
 			["Click"] = {
 				["BackgroundColor3"] = Color3.fromHex("#dddddd"),
+				["BackgroundTransparency"] = 0,
 			},
 		},	
 	},
@@ -90,9 +97,9 @@ function module.New (element : string, args)
 		new:SetAttribute("AlignY", args.AlignY or Defaults.AlignY)
 		new:SetAttribute("Position", args.Position or Defaults.Position)
 		new:SetAttribute("Size", args.Size or Defaults.Size)
-		new:SetAttribute("Index", args.Index or 0)
 		new:SetAttribute("AspectRatio", args.AspectRatio or Vector2.new(1, 1))
 		new:SetAttribute("ForceAspectRatio", args.ForceAspectRatio or false)
+		new:SetAttribute("Order", args.Order or "Horizontal")
 		
 		local corner = Instance.new("UICorner")
 		corner.Parent = new
@@ -108,6 +115,7 @@ function module.New (element : string, args)
 		
 		--properties
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Frame.BackgroundColor3)
+		new:SetAttribute("BackgroundTransparency", args.BackgroundTransparency or Defaults.Theme.Frame.BackgroundTransparency)
 		
 		return new
 	end
@@ -120,6 +128,7 @@ function module.New (element : string, args)
 		
 		--properties
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Text.BackgroundColor3)
+		new:SetAttribute("BackgroundTransparency", args.BackgroundTransparency or Defaults.Theme.Text.BackgroundTransparency)
 		new:SetAttribute("TextColor3", Defaults.Theme.Text.TextColor3)
 		new.Font = Defaults.Theme.Text.Font
 		new:SetAttribute("TextSize", Defaults.Theme.Text.TextSize)
@@ -136,6 +145,7 @@ function module.New (element : string, args)
 
 		--properties
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Image.BackgroundColor3)
+		new:SetAttribute("BackgroundTransparency", args.BackgroundTransparency or Defaults.Theme.Image.BackgroundTransparency)
 		
 		return new
 	end
@@ -148,6 +158,7 @@ function module.New (element : string, args)
 
 		--properties
 		new:SetAttribute("BackgroundColor3", Defaults.Theme.Frame.BackgroundColor3)
+		new:SetAttribute("BackgroundTransparency", args.BackgroundTransparency or Defaults.Theme.Frame.BackgroundTransparency)
 		
 		return new
 	end
@@ -175,9 +186,12 @@ function module.New (element : string, args)
 		new:SetAttribute("Hover", false)
 		new:SetAttribute("Click", false)
 
-		new:SetAttribute("BackgroundColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
+		new:SetAttribute("NormalColor3", Defaults.Theme.Button.Normal.BackgroundColor3)
+		new:SetAttribute("NormalTransparency", args.BackgroundTransparency or Defaults.Theme.Button.Normal.BackgroundTransparency)
 		new:SetAttribute("HoverColor3", Defaults.Theme.Button.Hover.BackgroundColor3)
+		new:SetAttribute("HoverTransparency", args.BackgroundTransparency or Defaults.Theme.Button.Hover.BackgroundTransparency)
 		new:SetAttribute("ClickColor3", Defaults.Theme.Button.Click.BackgroundColor3)
+		new:SetAttribute("ClickTransparency", args.BackgroundTransparency or Defaults.Theme.Button.Click.BackgroundTransparency)
 		
 		return new
 	end
@@ -202,8 +216,8 @@ function module.New (element : string, args)
 		--actual button
 		new = Button(args)
 		
-		local image = Image({Name = "Image", Parent = new, XAlign = "Left", YAlign = "Center", ForceAspectRatio = true, Size = args.Size})
-		local text = Text({Name = "Text", Parent = new, XAlign = "Right", YAlign = "Center", Size = args.Size})
+		local image = Image({Name = "Image", Parent = new, XAlign = "Left", ForceAspectRatio = true, Size = args.Size})
+		local text = Text({Name = "Text", Parent = new, XAlign = "Right", Size = args.Size})
 	end
 	
 	return new
@@ -251,147 +265,166 @@ function module.Update (step)
 				local size = element:GetAttribute("Size")
 				local alignX = element:GetAttribute("AlignX")
 				local alignY = element:GetAttribute("AlignY")
-
-				local xp
-				local xs
+				local aspectRatio = element:GetAttribute("AspectRatio")
 				
-				local yp
-				local ys
-				
-				if alignX == "Left" then
-					--predict left bound of object
+				local function horizontalAlign (xPosition, yPosition, xSize, ySize)
+					local horizontalPosition = 0
+					local horizontalSize = 0
+					
+					if alignX == "Left" or alignX == "Top" then
+						--predict left bound of object
 
-					local elementLeftBound
-					if position.X.Offset < bounds.X.Left or position.X.Offset + size.X.Offset > bounds.X.Right and position.Y.Offset < bounds.Y.Left then
-						elementLeftBound = bounds.X.Left + position.X.Offset
-					else
-						elementLeftBound = position.X.Offset + margin
+						local elementLeftBound
+						if yPosition < bounds.Y.Left or yPosition > bounds.Y.Right and xPosition < bounds.X.Left then
+							elementLeftBound = bounds.X.Left + xPosition
+						else
+							elementLeftBound = xPosition + margin
+						end
+
+						--constrain size to parent object
+
+						local elementRightBound = (bounds.X.Left + xPosition) + xSize --right side of element
+						--if the element's right bound extends past the right bound then
+						if elementRightBound > bounds.X.Right then
+							horizontalSize = xSize + (bounds.X.Right - elementRightBound) --constrain it
+						else
+							horizontalSize = xSize --if not do nothing
+						end
+
+						--update position
+
+						horizontalPosition = bounds.X.Left + xPosition
+					end
+					if alignX == "Center" then
+						--constrain size to parent object
+
+						local parentSize = bounds.X.Right - bounds.X.Left --available space left in parent object
+						--if the element's right bound extends past the right bound then
+						if xPosition + xSize > bounds.X.Right or xPosition < bounds.X.Left then
+							horizontalSize = xSize + (bounds.X.Right - parentSize) --constrain it
+						else
+							horizontalSize = xSize --if not do nothing
+						end
+
+						--update position
+
+						horizontalPosition = parentSize / 2 - xSize / 2
+					end
+					if alignX == "Right" or alignX == "Bottom" then
+						--predict left bound of object
+
+						local elementLeftBound
+						if yPosition < bounds.Y.Left or yPosition > bounds.Y.Right and xPosition > bounds.X.Right then
+							elementLeftBound = bounds.X.Left + xPosition
+						else
+							elementLeftBound = xPosition - margin
+						end
+
+						--constrain size to parent object
+
+						local elementRightBound = (bounds.X.Left + xPosition) + xSize --right side of element
+						--if the element's right bound extends past the right bound then
+						if elementRightBound > bounds.X.Right then
+							horizontalSize = xSize + (bounds.X.Right - elementRightBound) --constrain it
+						else
+							horizontalSize = xSize --if not do nothing
+						end
+
+						--update position
+
+						horizontalPosition = xPosition - margin - xSize + bounds.X.Right
 					end
 					
-					--constrain size to parent object
-					
-					local elementRightBound = (bounds.X.Left + position.X.Offset) + size.X.Offset --right side of element
-					--if the element's right bound extends past the right bound then
-					if elementRightBound > bounds.X.Right then
-						xs = size.X.Offset + (bounds.X.Right - elementRightBound) --constrain it
-					else
-						xs = size.X.Offset --if not do nothing
-					end
-					
-					--update position
-					
-					xp = bounds.X.Left + position.X.Offset
-				end
-				if alignX == "Center" then
-					--constrain size to parent object
-
-					local parentSize = bounds.X.Right - bounds.X.Left --available space left in parent object
-					--if the element's right bound extends past the right bound then
-					if size.X.Offset > bounds.X.Right then
-						xs = size.X.Offset + (bounds.X.Right - parentSize) --constrain it
-					else
-						xs = size.X.Offset --if not do nothing
-					end
-
-					--update position
-
-					xp = parentSize / 2 - size / 2
-				end
-				if alignX == "Right" then
-					--predict left bound of object
-
-					local elementLeftBound
-					if position.X.Offset < bounds.X.Left or position.X.Offset + size.X.Offset > bounds.X.Right and position.Y.Offset > bounds.Y.Right then
-						elementLeftBound = bounds.X.Left + position.X.Offset
-					else
-						elementLeftBound = position.X.Offset - margin
-					end
-					
-					--constrain size to parent object
-
-					local elementRightBound = (bounds.X.Left + position.X.Offset) + size.X.Offset --right side of element
-					--if the element's right bound extends past the right bound then
-					if elementRightBound > bounds.X.Right then
-						xs = size.X.Offset + (bounds.X.Right - elementRightBound) --constrain it
-					else
-						xs = size.X.Offset --if not do nothing
-					end
-
-					--update position
-
-					xp = position.X.Offset - margin - size.X.Offset + bounds.X.Right
-				end
-				
-				if alignY == "Top" then
-					--predict left bound of object
-
-					local elementLeftBound
-					if xp < bounds.X.Left or xp + xs > bounds.X.Right and position.Y.Offset < bounds.Y.Left then
-						elementLeftBound = bounds.Y.Left + position.Y.Offset
-					else
-						elementLeftBound = position.Y.Offset + margin
-					end
-					
-					--constrain size to parent object
-					local elementRightBound = elementLeftBound + size.Y.Offset --right side of element
-					--if the element's right bound extends past the right bound then
-					if elementRightBound > bounds.Y.Right then
-						ys = size.Y.Offset + (bounds.Y.Right - elementRightBound) --constrain it
-					else
-						ys = size.Y.Offset --if not do nothing
-					end
-
-					--update position
-
-					yp = elementLeftBound
-				end
-				if alignY == "Center" then
-					--constrain size to parent object
-
-					local parentSize = bounds.Y.Right - bounds.Y.Left --available space left in parent object
-					--if the element's right bound extends past the right bound then
-					if size.Y.Offset > bounds.Y.Right then
-						ys = size.Y.Offset + (bounds.Y.Right - parentSize) --constrain it
-					else
-						ys = size.Y.Offset --if not do nothing
-					end
-
-					--update position
-
-					yp = parentSize / 2 - size / 2
-				end
-				if alignY == "Bottom" then
-					--predict left bound of object
-					
-					local elementLeftBound
-					if xp < bounds.X.Left or xp + xs > bounds.X.Right and position.Y.Offset > bounds.Y.Right then
-						elementLeftBound = bounds.Y.Left + position.Y.Offset
-					else
-						elementLeftBound = position.Y.Offset - margin
-					end
-					
-					--constrain size to parent object
-
-					local elementRightBound = elementLeftBound + size.Y.Offset --right side of element
-					--if the element's right bound extends past the right bound then
-					if elementRightBound > bounds.Y.Right then
-						ys = size.Y.Offset + (bounds.Y.Right - elementRightBound) --constrain it
-					else
-						ys = size.Y.Offset --if not do nothing
-					end
-
-					--update position
-
-					yp = elementLeftBound - margin - size.Y.Offset
+					return horizontalPosition, horizontalSize
 				end
 				
-				print(element, bounds)
+				local function verticalAlign (xPosition, yPosition, xSize, ySize)
+					local verticalPosition = 0
+					local verticalSize = 0
+					
+					if alignY == "Top" or alignY == "Left" then
+						--predict left bound of object
+
+						local elementTopBound
+						if xPosition < bounds.X.Left or xPosition > bounds.X.Right and yPosition < bounds.Y.Left then
+							elementTopBound = bounds.Y.Left + yPosition
+						else
+							elementTopBound = yPosition + margin
+						end
+
+						--constrain size to parent object
+						
+						local elementBottomBound = elementTopBound + ySize --right side of element
+						--if the element's right bound extends past the right bound then
+						if elementBottomBound > bounds.Y.Right then
+							verticalSize = ySize + (bounds.Y.Right - elementBottomBound) --constrain it
+						else
+							verticalSize = ySize --if not do nothing
+						end
+
+						--update position
+
+						verticalPosition = elementTopBound
+					end
+					if alignY == "Center" then
+						--constrain size to parent object
+
+						local parentSize = bounds.Y.Right - bounds.Y.Left --available space left in parent object
+						--if the element's right bound extends past the right bound then
+						if yPosition + ySize > bounds.Y.Right or yPosition < bounds.Y.Left then
+							verticalSize = ySize + (bounds.Y.Right - parentSize) --constrain it
+						else
+							verticalSize = ySize --if not do nothing
+						end
+
+						--update position
+
+						verticalPosition = parentSize / 2 - ySize / 2 + yPosition
+					end
+					if alignY == "Bottom" or alignY == "Right" then
+						--predict left bound of object
+
+						local elementTopBound
+						if xPosition < bounds.X.Left or xPosition > bounds.X.Right and yPosition > bounds.Y.Right then
+							elementTopBound = bounds.Y.Left + yPosition
+						else
+							elementTopBound = yPosition - margin
+						end
+
+						--constrain size to parent object
+
+						local elementBottomBound = elementTopBound + ySize --right side of element
+						--if the element's right bound extends past the right bound then
+						if elementBottomBound > bounds.Y.Right then
+							verticalSize = ySize + (bounds.Y.Right - elementBottomBound) --constrain it
+						else
+							verticalSize = ySize --if not do nothing
+						end
+
+						--update position
+
+						verticalPosition = elementTopBound - margin - ySize
+					end
+					
+					return verticalPosition, verticalSize
+				end
+				
+				local xp, xs, yp, ys
+				if element.Parent:GetAttribute("Order") == "Vertical" then
+					yp, ys = verticalAlign(position.X.Offset, position.Y.Offset, size.X.Offset, size.Y.Offset)
+					xp, xs = horizontalAlign(position.X.Offset, yp, size.X.Offset, ys)
+				else
+					xp, xs = horizontalAlign(position.X.Offset, position.Y.Offset, size.X.Offset, size.Y.Offset)
+					yp, ys = verticalAlign(xp, position.Y.Offset, xs, size.Y.Offset)
+				end
+				
+				print(element.Parent:GetAttribute("Order"))
 				
 				if element:GetAttribute("ForceAspectRatio") then
-					if xs < ys then --not quite finished aspect ratio thing
-						ys = xs * (element:GetAttribute("AspectRatio").X / element:GetAttribute("AspectRatio").Y)
+					if xs < ys then
+						ys = xs * (aspectRatio.X / aspectRatio.Y)
 					else
-						xs = ys * (element:GetAttribute("AspectRatio").X / element:GetAttribute("AspectRatio").Y)
+						xs = ys * (aspectRatio.X / aspectRatio.Y)
 					end
 				end
 				
@@ -416,10 +449,9 @@ function module.Update (step)
 					element.TextColor3 = element:GetAttribute("TextColor3")
 					element.TextSize = element:GetAttribute("TextSize")
 				end
-	
-				if not cs:HasTag(element, "Button") then
-					element.BackgroundColor3 = element:GetAttribute("BackgroundColor3")
-				end
+				
+				element.BackgroundTransparency = element:GetAttribute("BackgroundTransparency")
+				element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("BackgroundColor3"), step * 15)
 				--TODO: Find a better way to do this
 				
 				--[[
@@ -434,14 +466,23 @@ function module.Update (step)
 						element.AbsolutePosition.Y < m.Y and 
 						element.AbsolutePosition.Y + element.AbsoluteSize.Y > m.Y
 					then
+						if not element:GetAttribute("Hover") then
+							ss.hover:Play()
+						end
 						--mouse is hovering
 						element:SetAttribute("Hover", true)
 					else
+						if element:GetAttribute("Hover") then
+							ss.off:Play()
+						end
 						--mouse is not hovering
 						element:SetAttribute("Hover", false)
 					end
 					--click logic
 					if mouseState and element:GetAttribute("Hover") then
+						if not element:GetAttribute("Click") then
+							ss.click:Play()
+						end
 						--mouse is down and hovering
 						element:SetAttribute("Click", true)
 					end
@@ -449,17 +490,18 @@ function module.Update (step)
 						--if mouse is up
 						if element:GetAttribute("Hover") and element:GetAttribute("Click") then
 							--if mouse is (technically) up and still hovering button (basically just lets the user unclick a button)
+							ss.off:Play()
 							element.Event:Fire()
 						end
 						element:SetAttribute("Click", false)
 					end
 					--hover and click effect (with blending)
 					if element:GetAttribute("Click") then
-						element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("ClickColor3"), step * 15)
+						element:SetAttribute("BackgroundColor3", element:GetAttribute("ClickColor3"))
 					elseif element:GetAttribute("Hover") then
-						element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("HoverColor3"), step * 15)
+						element:SetAttribute("BackgroundColor3", element:GetAttribute("HoverColor3"))
 					else
-						element.BackgroundColor3 = element.BackgroundColor3:Lerp(element:GetAttribute("BackgroundColor3"), step * 15)
+						element:SetAttribute("BackgroundColor3", element:GetAttribute("NormalColor3"))
 					end
 				end
 			end
